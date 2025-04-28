@@ -1,0 +1,66 @@
+{
+  "session_info": {
+    "date": "2025-04-27 11:31:40",
+    "duration": 5.35863995552063,
+    "total_messages": 0
+  },
+  "negotiation_result": {
+    "deal_closed": false,
+    "investment_requested": 50000000000,
+    "investment_secured": 0,
+    "equity_offered": 30,
+    "equity_given": 0,
+    "success_rate": 0
+  },
+  "performance_evaluation": {
+    "total_score": 0,
+    "percentage": 0.0,
+    "grade": "D",
+    "metrics": {
+      "technical_knowledge": 0,
+      "communication_skills": 0,
+      "negotiation_intelligence": 0,
+      "emotional_control": 0,
+      "creativity": 0
+    },
+    "strengths": [],
+    "weaknesses": [
+      "نیاز به تقویت دانش فنی و مالی",
+      "بهبود مهارت‌های ارتباطی",
+      "تقویت تکنیک‌های مذاکره",
+      "مدیریت بهتر احساسات",
+      "افزایش خلاقیت در پاسخ‌ها"
+    ],
+    "recommendations": [
+      "مطالعه بیشتر در زمینه مدل‌های مالی استارتاپ‌ها",
+      "تمرین ارائه‌های کوتاه و مختصر",
+      "تمرین تکنیک‌های مدیریت استرس",
+      "تمرین با سناریوهای مختلف برای افزایش اعتماد به نفس",
+      "مطالعه موردی مذاکرات موفق در صنعت"
+    ],
+    "feedback_history": []
+  },
+  "agents_feedback": {
+    "conservative_investor": {
+      "final_state": "neutral",
+      "satisfaction": 50,
+      "notes": []
+    },
+    "risky_investor": {
+      "final_state": "neutral",
+      "satisfaction": 50,
+      "notes": []
+    },
+    "competitor": {
+      "final_state": "neutral",
+      "satisfaction": 50,
+      "notes": []
+    },
+    "evaluator": {
+      "final_state": "neutral",
+      "satisfaction": 50,
+      "notes": []
+    }
+  },
+  "conversation_log": []
+}
