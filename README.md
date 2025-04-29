@@ -51,11 +51,11 @@ streamlit run main.py
 ```
 .
 ├── main.py                 # فایل اصلی برنامه
-├── audio_manager.py        # مدیریت صوت (تبدیل متن به گفتار و گفتار به متن)
 ├── core/
 │   ├── __init__.py
 │   ├── agents.py           # پیاده‌سازی عوامل هوشمند
-│   └── conversation.py     # مدیریت مکالمه و جلسه
+│   ├── conversation.py     # مدیریت مکالمه و جلسه
+|   └── audio_manager.py        # مدیریت صوت (تبدیل متن به گفتار و گفتار به متن)
 ├── reports/                # پوشه ذخیره گزارش‌ها
 └── requirements.txt        # وابستگی‌های پروژه
 ```
