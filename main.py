@@ -8,13 +8,13 @@ from datetime import datetime
 from typing import Dict, List
 from dotenv import load_dotenv
 import time
-import requests
 import base64
 
 # اضافه کردن مسیر پروژه به sys.path برای import ماژول‌ها
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from core.conversation import NegotiationSession, SessionPhase
+from core.audio_manager import AudioManager
 
 # تنظیمات صفحه
 st.set_page_config(
@@ -89,20 +89,8 @@ class StreamlitNegotiationApp:
         # بارگذاری متغیرهای محیطی
         load_dotenv()
 
-        # تنظیمات API
-        self.TTS_ENDPOINT = os.getenv("TTS_ENDPOINT", "https://tts.partapi.net/tts2")
-        self.TTS_API_KEY = os.getenv("TTS_API_KEY", "Gateway a7f37b14-d0a1-5b52-a6f0-d0baef9e1b67")
-        self.STT_ENDPOINT = os.getenv("STT_ENDPOINT", "https://stt.partapi.net/with-vad")
-        self.STT_API_KEY = os.getenv("STT_API_KEY", "Gateway 5c1ea0b8-7dc9-5f36-8f96-c4deff201a1d")
-
-        # Speaker settings for different agents
-        self.speaker_map = {
-            "آقای محمدی": 2,  # Male voice 1
-            "خانم اکبری": 0,  # Female voice
-            "آقای رضایی": 1,  # Male voice 2
-            "دکتر کریمی": 3,  # Male voice 3
-            "system": 3        # System voice
-        }
+        # مدیر صوتی
+        self.audio_manager = AudioManager()
 
         # تنظیمات اولیه session state
         if 'session' not in st.session_state:
@@ -125,68 +113,6 @@ class StreamlitNegotiationApp:
         # ایجاد پوشه گزارشات
         self.report_dir = "reports"
         os.makedirs(self.report_dir, exist_ok=True)
-
-    def speech_to_text(self, audio_base64):
-        """تبدیل صدا به متن"""
-        url = self.STT_ENDPOINT
-        payload = json.dumps({"base64": audio_base64})
-        headers = {
-            'Content-Type': 'application/json',
-            'gateway-token': self.STT_API_KEY
-        }
-        
-        try:
-            response = requests.post(url, headers=headers, data=payload)
-            response.raise_for_status()
-            result = response.json()
-            
-            if result["success"]:
-                return result["data"]["data"].get("result")
-            else:
-                st.error("خطا در تبدیل صدا به متن")
-                return None
-        except Exception as e:
-            st.error(f"خطا در درخواست STT: {str(e)}")
-            return None
-
-    def text_to_speech(self, text, speaker=3, speed=1):
-        """تبدیل متن به صدا"""
-        url = self.TTS_ENDPOINT
-        payload = json.dumps({
-            "data": text, 
-            "filePath": "true", 
-            "base64": "1", 
-            "checksum": "1",
-            "speaker": str(speaker), 
-            "speed": str(speed)
-        })
-        headers = {
-            'Content-Type': 'application/json', 
-            'gateway-token': self.TTS_API_KEY
-        }
-        
-        try:
-            response = requests.post(url, headers=headers, data=payload)
-            response.raise_for_status()
-            result = response.json()
-            
-            if result["data"]["status"] == "success":
-                file_url = result["data"]["data"].get("filePath")
-                if file_url:
-                    if not file_url.startswith(('http://', 'https://')):
-                        file_url = f"https://{file_url}"
-                    audio_response = requests.get(file_url, headers={'gateway-token': self.TTS_API_KEY})
-                    audio_response.raise_for_status()
-                    return audio_response.content
-                else:
-                    st.error("No filePath found in TTS response.")
-                    return None
-            else:
-                st.error("TTS API returned unsuccessful status.")
-                return None
-        except Exception as e:
-            st.error(f"خطا در درخواست TTS: {str(e)}")
-            return None
 
     def render_sidebar(self):
         """رندر کردن سایدبار"""
@@ -267,6 +193,9 @@ class StreamlitNegotiationApp:
             st.session_state.messages = []
             st.session_state.final_report = None
             st.session_state.last_audio = None
+            
+            # پاک کردن صف صوتی
+            self.audio_manager.clear_audio_queue()
 
             # پیام خوش‌آمدگویی
             welcome_msg = st.session_state.session.start_session()
@@ -289,6 +218,7 @@ class StreamlitNegotiationApp:
                 st.session_state.final_report = st.session_state.session.get_final_report()
                 st.session_state.session_active = False
                 self.save_report(st.session_state.final_report)
+                self.audio_manager.clear_audio_queue()
                 st.success("جلسه به پایان رسید. گزارش ذخیره شد.")
                 st.rerun()
             except Exception as e:
@@ -347,25 +277,19 @@ class StreamlitNegotiationApp:
             unsafe_allow_html=True
         )
 
-        # اگر حالت صوتی فعال است و پیام از عوامل است، صدا پخش کنید
-        if st.session_state.voice_mode and agent != "شما":
-            speaker = self.speaker_map.get(agent, 3)
-            audio_bytes = self.text_to_speech(content, speaker=speaker)
-            if audio_bytes and st.session_state.audio_autoplay:
-                audio_base64 = base64.b64encode(audio_bytes).decode()
-                audio_html = f"""
-                    <audio controls autoplay class="audio-container">
-                        <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
-                        مرورگر شما از پخش صوت پشتیبانی نمی‌کند.
-                    </audio>
-                """
-                st.markdown(audio_html, unsafe_allow_html=True)
+        # اگر حالت صوتی فعال است و پیام از عوامل است، صدا را به صف اضافه کنید
+        if st.session_state.voice_mode and agent != "شما" and agent != "system":
+            self.audio_manager.enqueue_audio(agent, content)
 
     def render_chat_interface(self):
         """رندر کردن رابط چت"""
         # نمایش پیام‌ها
         for message in st.session_state.messages:
             self.render_message(message)
+
+        # اگر حالت صوتی فعال است، پخش کننده صوتی را نمایش دهید
+        if st.session_state.voice_mode:
+            self.audio_manager.render_audio_player()
 
         # ورودی کاربر - متنی یا صوتی
         if st.session_state.session_active:
@@ -391,10 +315,20 @@ class StreamlitNegotiationApp:
                     audio_bytes = recorded_audio.read()
                     audio_base64 = base64.b64encode(audio_bytes).decode()
                     
-                    transcribed_text = self.speech_to_text(audio_base64)
+                    # نمایش پیام برای دیباگ
+                    st.info("در حال ارسال صدا برای تبدیل به متن...")
+                    
+                    transcribed_text = self.audio_manager.speech_to_text(audio_base64)
                     if transcribed_text:
-                        st.info(f"متن تشخیص داده شده: {transcribed_text}")
-                        self.process_user_input(transcribed_text)
+                        # Get result from the transcribed data structure
+                        text_result = transcribed_text.get("result", "")
+                        if text_result:
+                            st.info(f"متن تشخیص داده شده: {text_result}")
+                            self.process_user_input(text_result)
+                        else:
+                            st.error("متنی تشخیص داده نشد. لطفا دوباره تلاش کنید.")
+                    else:
+                        st.error("خطا در تشخیص گفتار. لطفا دوباره تلاش کنید یا از ورودی متنی استفاده نمایید.")
 
     def process_user_input(self, user_input: str):
         """پردازش ورودی کاربر"""
@@ -556,21 +490,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-# requirements.txt به‌روزرسانی شده:
-"""
-openai>=1.0.0
-python-dotenv>=0.19.0
-streamlit>=1.28.0
-requests>=2.31.0
-"""
-
-# راهنمای اجرا:
-"""
-1. نصب وابستگی‌ها:
-   pip install -r requirements.txt
-
-2. اجرای برنامه:
-   streamlit run main.py
-
-3. برنامه در مرورگر باز می‌شود (معمولا http://localhost:8501)
-"""
